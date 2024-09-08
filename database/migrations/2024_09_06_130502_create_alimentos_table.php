@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('alimentos', function (Blueprint $table) {
+            $table->id();
+            $table->string('codigo')->unique()->nullable(false);
+            $table->string('alimento')->unique()->nullable(false);
+            $table->foreignId('grupo_id')->constraints()->cascadeOnDelete()->nullable(false);
+            $table->foreignId('parte_id')->constraints()->cascadeOnDelete()->nullable(false);
+            $table->integer('comestible')->nullable(false);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('alimentos');
+    }
+};
