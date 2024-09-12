@@ -9,4 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateTipo extends CreateRecord
 {
     protected static string $resource = TipoResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

@@ -19,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\RichEditor;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Support\Enums\IconPosition;
 
 class ComponenteResource extends Resource
 {
@@ -32,18 +33,23 @@ class ComponenteResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('Cart')
-                    ->description('The items you have selected for purchase')
-                    ->icon('heroicon-m-shopping-bag')
+                Section::make('Tipo De Analisis')
+                    ->icon('gmdi-science-tt')
                     ->schema([
                         Select::make('tipo_id')
+                            ->label('Tipo De Analisis')
                             ->relationship(name: 'tipo', titleAttribute: 'tipo')
+                            ->searchable()
+                            ->required()
+                            ->preload()
                     ]),
-                Section::make('Cart')
-                    ->description('The items you have selected for purchase')
-                    ->icon('heroicon-m-shopping-bag')
+                Section::make('Componentes')
+                    ->icon('gmdi-hive-tt')
                     ->schema([
-                        TextInput::make('componente'),
+                        TextInput::make('componente')
+                            ->label('Componente')
+                            ->required()
+                            ->afterStateUpdated(fn($state, callable $set) => $set('componente', strtoupper($state))),
                         RichEditor::make('descripcion')
                     ])
             ]);
@@ -60,6 +66,8 @@ class ComponenteResource extends Resource
                     ->label('Tipo de Analisis')
                     ->searchable(),
                 TextColumn::make('descripcion')
+                    ->markdown()
+                    ->limit(50)
                     ->label('Descripción')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('No description.'),
@@ -79,8 +87,23 @@ class ComponenteResource extends Resource
                     ->preload()
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->color('warning')
+                    ->icon('gmdi-mode-edit-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Editar')
+                    ->label('Editar')
+                    ->iconPosition(IconPosition::After),
+                Tables\Actions\DeleteAction::make()
+                    ->icon('gmdi-delete-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Eliminar')
+                    ->label('Eliminar')
+                    ->iconPosition(IconPosition::After),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

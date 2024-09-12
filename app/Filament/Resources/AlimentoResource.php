@@ -19,6 +19,8 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Filament\Support\Enums\IconPosition;
+use Filament\Tables\Columns\TextColumn;
 
 class AlimentoResource extends Resource
 {
@@ -38,7 +40,7 @@ class AlimentoResource extends Resource
                     ->schema([
                         Wizard::make([
                             Wizard\Step::make('Datos Alimentos')
-                                ->icon('heroicon-m-shopping-bag')
+                                ->icon('gmdi-description-tt')
                                 ->schema([
                                     Grid::make([
                                         'default' => 2
@@ -54,7 +56,7 @@ class AlimentoResource extends Resource
                                         ->required()
                                 ]),
                             Wizard\Step::make('Informacion Alimentos')
-                                ->icon('heroicon-m-shopping-bag')
+                                ->icon('gmdi-info-tt')
                                 ->schema([
                                     Select::make('grupo_id')
                                         ->label('Grupos de Alimentos')
@@ -76,7 +78,7 @@ class AlimentoResource extends Resource
                                         ->label('Parte Comestible (%)')
                                 ]),
                             Wizard\Step::make('Composicion Alimentos')
-                                ->icon('heroicon-m-shopping-bag')
+                                ->icon('gmdi-bubble-chart-tt')
                                 ->schema([
                                     Repeater::make('item_alimentos')
 
@@ -133,13 +135,49 @@ class AlimentoResource extends Resource
     {
         return $table
             ->columns([
-                //
+                TextColumn::make('codigo')
+                ->label('Código')
+                ->searchable(),
+                TextColumn::make('alimento')
+                ->label('Alimento')
+                ->searchable(),
+                TextColumn::make('grupo.grupo')
+                ->label('Grupo de Alimentos')
+                ->searchable(),
+                TextColumn::make('grupo.fuente.fuente')
+                ->label('Fuente')
+                ->toggleable(isToggledHiddenByDefault: true)
+                ->searchable(),
+                TextColumn::make('parte.parte')
+                ->label('Parte Analizada'),
+                TextColumn::make('comestible')
+                ->label('Parte Comestible (%)'),
+                TextColumn::make('created_at')
+                ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')
+                ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->color('warning')
+                    ->icon('gmdi-mode-edit-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Editar')
+                    ->label('Editar')
+                    ->iconPosition(IconPosition::After),
+                Tables\Actions\DeleteAction::make()
+                    ->icon('gmdi-delete-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Eliminar')
+                    ->label('Eliminar')
+                    ->iconPosition(IconPosition::After),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

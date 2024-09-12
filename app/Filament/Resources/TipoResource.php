@@ -17,6 +17,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\RichEditor;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Support\Enums\IconPosition;
 
 class TipoResource extends Resource
 {
@@ -32,12 +33,15 @@ class TipoResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('Cart')
-                    ->description('The items you have selected for purchase')
-                    ->icon('heroicon-m-shopping-bag')
+                Section::make('Tipo De Analisis')
+                    ->icon('gmdi-science-tt')
                     ->schema([
-                        TextInput::make('tipo'),
+                        TextInput::make('tipo')
+                        ->afterStateUpdated(fn($state, callable $set) => $set('tipo', strtoupper($state)))
+                            ->label('Tipo De Analisis')
+                            ->required(),
                         RichEditor::make('descripcion')
+                            ->label('Descripcion')
                     ])
 
 
@@ -52,6 +56,8 @@ class TipoResource extends Resource
                     ->label('Tipo De Analisis')
                     ->searchable(),
                 TextColumn::make('descripcion')
+                    ->markdown()
+                    ->limit(50)
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('No description.'),
                 TextColumn::make('created_at')
@@ -67,8 +73,23 @@ class TipoResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->color('warning')
+                    ->icon('gmdi-mode-edit-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Editar')
+                    ->label('Editar')
+                    ->iconPosition(IconPosition::After),
+                Tables\Actions\DeleteAction::make()
+                    ->icon('gmdi-delete-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Eliminar')
+                    ->label('Eliminar')
+                    ->iconPosition(IconPosition::After),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

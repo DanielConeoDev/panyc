@@ -19,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\RichEditor;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Support\Enums\IconPosition;
 
 class GrupoResource extends Resource
 {
@@ -44,8 +45,14 @@ class GrupoResource extends Resource
                 Section::make('Grupo')
                     ->icon('gmdi-group-work-tt')
                     ->schema([
-                        TextInput::make('grupo'),
+                        TextInput::make('grupo')
+                            ->afterStateUpdated(fn($state, callable $set) => $set('grupo', strtoupper($state)))
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->label('Grupo')
+                            ->maxLength(255),
                         RichEditor::make('descripcion')
+                            ->label('Descripción')
                     ])
             ]);
     }
@@ -62,8 +69,18 @@ class GrupoResource extends Resource
                     ->searchable(),
                 TextColumn::make('descripcion')
                     ->label('Descripción')
+                    ->markdown()
+                    ->limit(50)
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('No description.'),
+                TextColumn::make('created_at')
+                    ->label('Creado')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->sortable(),
+                TextColumn::make('updated_at')
+                    ->label('Actualizado')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('fuente')
@@ -72,8 +89,23 @@ class GrupoResource extends Resource
                     ->preload()
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->color('warning')
+                    ->icon('gmdi-mode-edit-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Editar')
+                    ->label('Editar')
+                    ->iconPosition(IconPosition::After),
+                Tables\Actions\DeleteAction::make()
+                    ->icon('gmdi-delete-tt')
+                    ->iconButton()
+                    ->button()
+                    ->outlined()
+                    ->tooltip('Eliminar')
+                    ->label('Eliminar')
+                    ->iconPosition(IconPosition::After),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

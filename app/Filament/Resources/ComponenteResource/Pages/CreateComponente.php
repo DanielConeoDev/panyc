@@ -14,4 +14,5 @@ class CreateComponente extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
 }

@@ -28,6 +28,8 @@ class DashboardPanelProvider extends PanelProvider
             ->id('dashboard')
             ->path('dashboard')
             ->login()
+            ->favicon('images/p!.png')
+            ->profile()
             ->sidebarCollapsibleOnDesktop(true)
             ->colors([
                 'primary' => Color::Amber,
@@ -38,10 +40,7 @@ class DashboardPanelProvider extends PanelProvider
                 Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
-            ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
-            ])
+            ->widgets([])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -57,7 +56,7 @@ class DashboardPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->plugins([
+            /*->plugins([
                 FilamentEditProfilePlugin::make()
                     ->setTitle('Mi Perfil')
                     ->setNavigationLabel('Mi Perfil')
@@ -68,9 +67,11 @@ class DashboardPanelProvider extends PanelProvider
                         directory: 'avatars', // image will be stored in 'storage/app/public/avatars
                         rules: 'mimes:jpeg,png|max:1024' //only accept jpeg and png files with a maximum size of 1MB
                     )
-            ])
+            ])*/
             ->plugin(
                 \Hasnayeen\Themes\ThemesPlugin::make()
-            );
+            )->plugins([
+                \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make()
+            ]);
     }
 }
