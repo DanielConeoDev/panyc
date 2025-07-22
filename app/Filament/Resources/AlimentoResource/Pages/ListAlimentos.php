@@ -37,12 +37,13 @@ class ListAlimentos extends ListRecords
             'Ascendente' => Tab::make()
                 ->label('Ascendente (A-Z)')
                 ->icon('heroicon-m-arrow-up')
-                ->query(fn($query) => $query->orderBy('nombre_del_alimento', 'asc')),
+                ->query(fn($query) => $query->orderBy('codigo', 'asc')),
 
             'Descendente' => Tab::make()
                 ->label('Descendente (Z-A)')
                 ->icon('heroicon-m-arrow-down')
-                ->query(fn($query) => $query->orderBy('nombre_del_alimento', 'desc')),
+                ->query(fn($query) => $query->orderBy('codigo', 'desc')),
+
         ];
     }
 
@@ -52,7 +53,8 @@ class ListAlimentos extends ListRecords
         return [
             ExcelImportAction::make()
                 ->slideOver()
-                ->color('info')
+                ->color('danger')
+                ->label('Importar')
                 ->icon('heroicon-m-arrow-up-tray')
                 ->sampleExcel(
                     sampleData: [],
@@ -71,7 +73,7 @@ class ListAlimentos extends ListRecords
                         ->required()
                         ->searchable()
                         ->preload(),
-        
+
                     Select::make('grupo_id')
                         ->label('Grupo de Alimentos')
                         ->options(Grupo::all()->pluck('grupo', 'id'))
@@ -96,10 +98,9 @@ class ListAlimentos extends ListRecords
                     ],
                     // Puedes agregar más validaciones aquí si lo necesitas
                 ]),
-            
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Añadir')
+                ->icon('heroicon-m-plus'),
         ];
-               
-        
     }
 }

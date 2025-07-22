@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\AlimentoResource\RelationManagers;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
+use Filament\Tables\Actions\ActionGroup;
 
 class AlimentoResource extends Resource
 {
@@ -53,108 +54,115 @@ class AlimentoResource extends Resource
                     Placeholder::make('nota_equivalentes')
                         ->label('¿Qué es la tabla de equivalentes?')
                         ->content(
-                            'La tabla de equivalentes está diseñada para registrar alimentos que no existen en la base de datos principal. '
-                                . 'A estos alimentos se les asigna un código automático que comienza con "TE". '
-                                . 'Este sistema garantiza una identificación única y ordenada de alimentos alternativos o nuevos, facilitando su gestión y trazabilidad.'
+                            'La tabla de equivalentes permite registrar alimentos que no existen en la base de datos principal. '
+                                . 'Se les asigna un código automático comenzando con "TE", garantizando una identificación única y organizada.'
                         )
-                        ->columnSpan('full'),
+                        ->columnSpanFull(),
                 ])
                 ->visible(fn($get, $record) => is_null($record)),
 
-            Section::make('Información General')->schema([
-                TextInput::make('codigo')
-                    ->label('Código manual')
-                    ->required(fn(Get $get) => $get('es_nuevo') == false)
-                    ->visible(fn(Get $get) => $get('es_nuevo') == false)
-                    ->disabled(fn($record) => !is_null($record)),
+            Section::make('Información General')
+                ->schema([
+                    TextInput::make('codigo')
+                        ->label('Código manual')
+                        ->required(fn(Get $get) => $get('es_nuevo') == false)
+                        ->visible(fn(Get $get) => $get('es_nuevo') == false)
+                        ->disabled(fn($record) => !is_null($record)),
 
-                Placeholder::make('codigo')
-                    ->label('Código generado automáticamente')
-                    ->disabled(fn($record) => !is_null($record))
-                    ->content(function () {
-                        $lastCode = DB::table('alimentos')
-                            ->where('codigo', 'like', 'TE%')
-                            ->orderByDesc('codigo')
-                            ->value('codigo');
+                    Placeholder::make('codigo')
+                        ->label('Código generado automáticamente')
+                        ->disabled()
+                        ->content(function () {
+                            $lastCode = DB::table('alimentos')
+                                ->where('codigo', 'like', 'TE%')
+                                ->orderByDesc('codigo')
+                                ->value('codigo');
 
-                        $nextNumber = $lastCode ? intval(substr($lastCode, 2)) + 1 : 1;
-                        return 'TE' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-                    })
-                    ->visible(fn(Get $get) => $get('es_nuevo') == true),
+                            $nextNumber = $lastCode ? intval(substr($lastCode, 2)) + 1 : 1;
+                            return 'TE' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+                        })
+                        ->visible(fn(Get $get) => $get('es_nuevo') == true),
+
                     TextInput::make('nombre_del_alimento')
-                    ->label('Nombre del alimento')
-                    ->required()
-                    ->maxLength(255),
-        
-                TextInput::make('parte_analizada')
-                    ->label('Parte analizada')
-                    ->maxLength(255)
-                    ->default(null)
-                    ->helperText('Especifique la parte del alimento que se ha analizado (ej. pulpa, semilla, etc.).'),
-        
-                TextInput::make('parte_comestible_porcentaje')
-                    ->label('Parte comestible (%)')
-                    ->numeric()
-                    ->default(null)
-                    ->suffix('%')
-                    ->helperText('Indique el porcentaje comestible del alimento.'),
-        
-                Select::make('fuente_id')
-                    ->label('Fuente')
-                    ->relationship('fuente', 'fuente')
-                    ->required()
-                    ->searchable()
-                    ->preload()
-                    ->helperText('Seleccione la fuente de donde proviene la información.'),
-        
-                Select::make('grupo_id')
-                    ->label('Grupo de alimentos')
-                    ->relationship('grupo', 'grupo')
-                    ->searchable()
-                    ->preload()
-                    ->helperText('Clasifique el alimento según su grupo correspondiente.'),
-            ])
-            ->columns(2),
+                        ->label('Nombre del alimento')
+                        ->required()
+                        ->maxLength(255),
 
-            Section::make('Composición Nutricional')->schema([
-                TextInput::make('humedad_g')->numeric()->default(null),
-                TextInput::make('energia_kcal')->numeric()->default(null),
-                TextInput::make('energia_kj')->numeric()->default(null),
-                TextInput::make('proteina_g')->numeric()->default(null),
-                TextInput::make('lipidos_g')->numeric()->default(null),
-                TextInput::make('carbohidratos_totales_g')->numeric()->default(null),
-                TextInput::make('carbohidratos_disponibles_g')->numeric()->default(null),
-                TextInput::make('fibra_dietaria_g')->numeric()->default(null),
-                TextInput::make('cenizas_g')->numeric()->default(null),
-            ])->columns(3),
+                    TextInput::make('parte_analizada')
+                        ->label('Parte analizada')
+                        ->maxLength(255)
+                        ->helperText('Ej: pulpa, semilla, etc.'),
 
-            Section::make('Minerales')->schema([
-                TextInput::make('calcio_mg')->numeric()->default(null),
-                TextInput::make('hierro_mg')->numeric()->default(null),
-                TextInput::make('sodio_mg')->numeric()->default(null),
-                TextInput::make('fosforo_mg')->numeric()->default(null),
-                TextInput::make('yodo_mg')->numeric()->default(null),
-                TextInput::make('zinc_mg')->numeric()->default(null),
-                TextInput::make('magnesio_mg')->numeric()->default(null),
-                TextInput::make('potasio_mg')->numeric()->default(null),
-            ])->columns(4),
+                    TextInput::make('parte_comestible_porcentaje')
+                        ->label('Parte comestible (%)')
+                        ->numeric()
+                        ->suffix('%')
+                        ->helperText('Indique el porcentaje comestible del alimento.'),
 
-            Section::make('Vitaminas')->schema([
-                TextInput::make('tiamina_mg')->numeric()->default(null),
-                TextInput::make('riboflavina_mg')->numeric()->default(null),
-                TextInput::make('niacina_mg')->numeric()->default(null),
-                TextInput::make('folatos_mcg')->numeric()->default(null),
-                TextInput::make('vitamina_b12_mcg')->numeric()->default(null),
-                TextInput::make('vitamina_c_mg')->numeric()->default(null),
-                TextInput::make('vitamina_a_er')->numeric()->default(null),
-            ])->columns(3),
+                    Select::make('fuente_id')
+                        ->label('Fuente')
+                        ->relationship('fuente', 'fuente')
+                        ->required()
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Seleccione la fuente de la información.'),
 
-            Section::make('Grasas y Colesterol')->schema([
-                TextInput::make('grasa_saturada_g')->numeric()->default(null),
-                TextInput::make('grasa_monoinsaturada_g')->numeric()->default(null),
-                TextInput::make('grasa_poliinsaturada_g')->numeric()->default(null),
-                TextInput::make('colesterol_mg')->numeric()->default(null),
-            ])->columns(2),
+                    Select::make('grupo_id')
+                        ->label('Grupo de alimentos')
+                        ->relationship('grupo', 'grupo')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Clasifique el alimento según su grupo.'),
+                ])
+                ->columns(2),
+
+            Section::make('Composición Nutricional')
+                ->schema([
+                    TextInput::make('humedad_g')->label('Humedad (g)')->numeric(),
+                    TextInput::make('energia_kcal')->label('Energía (kcal)')->numeric(),
+                    TextInput::make('energia_kj')->label('Energía (kJ)')->numeric(),
+                    TextInput::make('proteina_g')->label('Proteína (g)')->numeric(),
+                    TextInput::make('lipidos_g')->label('Lípidos (g)')->numeric(),
+                    TextInput::make('carbohidratos_totales_g')->label('Carbohidratos totales (g)')->numeric(),
+                    TextInput::make('carbohidratos_disponibles_g')->label('Carbohidratos disponibles (g)')->numeric(),
+                    TextInput::make('fibra_dietaria_g')->label('Fibra dietaria (g)')->numeric(),
+                    TextInput::make('cenizas_g')->label('Cenizas (g)')->numeric(),
+                ])
+                ->columns(3),
+
+            Section::make('Minerales')
+                ->schema([
+                    TextInput::make('calcio_mg')->label('Calcio (mg)')->numeric(),
+                    TextInput::make('hierro_mg')->label('Hierro (mg)')->numeric(),
+                    TextInput::make('sodio_mg')->label('Sodio (mg)')->numeric(),
+                    TextInput::make('fosforo_mg')->label('Fósforo (mg)')->numeric(),
+                    TextInput::make('yodo_mg')->label('Yodo (mg)')->numeric(),
+                    TextInput::make('zinc_mg')->label('Zinc (mg)')->numeric(),
+                    TextInput::make('magnesio_mg')->label('Magnesio (mg)')->numeric(),
+                    TextInput::make('potasio_mg')->label('Potasio (mg)')->numeric(),
+                ])
+                ->columns(4),
+
+            Section::make('Vitaminas')
+                ->schema([
+                    TextInput::make('tiamina_mg')->label('Tiamina (mg)')->numeric(),
+                    TextInput::make('riboflavina_mg')->label('Riboflavina (mg)')->numeric(),
+                    TextInput::make('niacina_mg')->label('Niacina (mg)')->numeric(),
+                    TextInput::make('folatos_mcg')->label('Folatos (mcg)')->numeric(),
+                    TextInput::make('vitamina_b12_mcg')->label('Vitamina B12 (mcg)')->numeric(),
+                    TextInput::make('vitamina_c_mg')->label('Vitamina C (mg)')->numeric(),
+                    TextInput::make('vitamina_a_er')->label('Vitamina A (ER)')->numeric(),
+                ])
+                ->columns(3),
+
+            Section::make('Grasas y Colesterol')
+                ->schema([
+                    TextInput::make('grasa_saturada_g')->label('Grasa saturada (g)')->numeric(),
+                    TextInput::make('grasa_monoinsaturada_g')->label('Grasa monoinsaturada (g)')->numeric(),
+                    TextInput::make('grasa_poliinsaturada_g')->label('Grasa poliinsaturada (g)')->numeric(),
+                    TextInput::make('colesterol_mg')->label('Colesterol (mg)')->numeric(),
+                ])
+                ->columns(2),
         ]);
     }
 
@@ -163,42 +171,51 @@ class AlimentoResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('codigo')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('nombre_del_alimento')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('parte_analizada')
+                    ->label('Código')
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
 
-                Tables\Columns\TextColumn::make('parte_comestible_porcentaje')
-                    ->numeric()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                Tables\Columns\TextColumn::make('nombre_del_alimento')
+                    ->label('Nombre')
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('grupo.grupo')
                     ->label('Grupo')
                     ->searchable()
-                    ->sortable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('parte_comestible_porcentaje')
+                    ->label('% Comestible')
+                    ->numeric()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('parte_analizada')
+                    ->label('Parte Analizada')
+                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('fuente.fuente')
                     ->label('Fuente')
-                    ->limit(30)        // Limita a 30 caracteres y agrega "…" si es más largo
+                    ->limit(30)
                     ->searchable()
-                    ->sortable(),
-
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('fuente.pais')
-                    ->label('País de la fuente')
+                    ->label('País')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Creado')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Actualizado')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -235,13 +252,15 @@ class AlimentoResource extends Resource
                     ->nullable(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                ])->icon('heroicon-m-plus-circle'),
             ])
             ->headerActions([
                 ExportAction::make('exportar')
-                    ->label('Exportar alimentos')
+                    ->label('Exportar')
                     ->exports([
                         ExcelExport::make()
                             ->fromModel()
@@ -255,7 +274,7 @@ class AlimentoResource extends Resource
                     ])
                     ->icon('heroicon-m-arrow-down-tray')
                     ->color('success')
-            ])           
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
