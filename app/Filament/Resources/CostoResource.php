@@ -5,23 +5,26 @@ namespace App\Filament\Resources;
 use Filament\Forms;
 use Filament\Tables;
 use App\Models\Costo;
+use Livewire\Livewire;
 use Filament\Forms\Form;
 use Filament\Tables\Table;
-use Livewire\Livewire;
-use Filament\Tables\Actions\Action;
 use Filament\Resources\Resource;
 use Illuminate\Support\Facades\DB;
 use Filament\Forms\Components\Grid;
+use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;
+use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\Placeholder;
 use App\Filament\Resources\CostoResource\Pages;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\CostoResource\RelationManagers;
+use Filament\Forms\Components\TextInput\Mask;
+
 
 class CostoResource extends Resource
 {
@@ -38,92 +41,169 @@ class CostoResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('Información del Alimento')
-                    ->description('Seleccione el alimento para ver el precio activo actual y su fecha.')
+                Grid::make([
+                    'default' => 1,
+                    'sm' => 1,
+                    'md' => 3, // 3 columnas para lograr proporción 2/3 - 1/3
+                ])
                     ->schema([
-                        Select::make('alimento_id')
-                            ->label('Alimento')
-                            ->options(function () {
-                                return \App\Models\Alimento::all()->mapWithKeys(function ($alimento) {
-                                    $tieneActivo = $alimento->costos()->where('estado', 'activo')->exists();
 
-                                    $icono = $tieneActivo ? '✅' : '❌';
-
-                                    return [
-                                        $alimento->codigo => "{$icono} {$alimento->nombre_del_alimento}",
-                                    ];
-                                })->toArray();
-                            })
-                            ->searchable()
-                            ->required()
-                            ->reactive(),
-                        Placeholder::make(' ')
-                            ->content('
-                    ✅ : El alimento tiene al menos un precio activo.
-                    ❌ : El alimento no tiene precio activo actualmente.')
-                            ->columnSpan('full'),
-                        Grid::make(2)
+                        // 🔹 Sección Principal (2/3)
+                        Section::make('Selección de Alimento')
+                            ->description('Busca y selecciona el alimento para ver su información de costos.')
                             ->schema([
-                                Placeholder::make('info_precio')
-                                    ->label('Precio activo actual')
-                                    ->content(function ($get) {
-                                        $alimentoId = $get('alimento_id');
-                                        if (!$alimentoId) {
-                                            return 'Seleccione un alimento';
-                                        }
-                                        $costoActivo = Costo::where('alimento_id', $alimentoId)
-                                            ->where('estado', 'activo')
-                                            ->latest('created_at')
-                                            ->first();
+                                Select::make('alimento_id')
+                                    ->label('Alimento')
+                                    ->searchable()
+                                    ->required()
+                                    ->reactive()
+                                    ->getSearchResultsUsing(function (string $search) {
+                                        return \App\Models\Alimento::query()
+                                            ->where('nombre_del_alimento', 'like', "%{$search}%")
+                                            ->orWhere('codigo', 'like', "%{$search}%")
+                                            ->limit(20)
+                                            ->get()
+                                            ->mapWithKeys(function ($alimento) {
+                                                $tieneActivo = $alimento->costos()
+                                                    ->where('estado', 'activo')
+                                                    ->exists();
 
-                                        return $costoActivo
-                                            ? '$' . number_format($costoActivo->precio, 2)
-                                            : 'No hay precio activo';
+                                                $icono = $tieneActivo ? '✅' : '❌';
+
+                                                return [
+                                                    $alimento->codigo => "{$icono} {$alimento->nombre_del_alimento}",
+                                                ];
+                                            });
+                                    })
+                                    ->getOptionLabelUsing(function ($value): ?string {
+                                        $alimento = \App\Models\Alimento::find($value);
+                                        if (!$alimento) return null;
+
+                                        $tieneActivo = $alimento->costos()
+                                            ->where('estado', 'activo')
+                                            ->exists();
+
+                                        $icono = $tieneActivo ? '✅' : '❌';
+
+                                        return "{$icono} {$alimento->nombre_del_alimento}";
                                     }),
 
-                                Placeholder::make('info_fecha')
-                                    ->label('Fecha del precio activo')
-                                    ->content(function ($get) {
-                                        $alimentoId = $get('alimento_id');
-                                        if (!$alimentoId) {
-                                            return '—';
-                                        }
-                                        $costoActivo = Costo::where('alimento_id', $alimentoId)
-                                            ->where('estado', 'activo')
-                                            ->latest('created_at')
-                                            ->first();
+                                Placeholder::make('leyenda')
+                                    ->content('
+                                    ✅ : El alimento tiene al menos un precio activo.  
+                                    ❌ : El alimento no tiene precio activo actualmente.
+                                ')
+                                    ->columnSpan('full'),
+                            ])
+                            ->columnSpan([
+                                'default' => 1,
+                                'md' => 2,
+                            ]),
 
-                                        return $costoActivo
-                                            ? $costoActivo->created_at->format('Y-m-d H:i')
-                                            : '—';
-                                    }),
+                        // 🔹 Sección Secundaria (1/3)
+                        Section::make('Precio Activo del Alimento')
+                            ->description('Muestra el precio vigente y la fecha de actualización.')
+                            ->schema([
+                                Grid::make(2)
+                                    ->schema([
+                                        Placeholder::make('precio_actual')
+                                            ->label('💰 Precio actual')
+                                            ->content(function ($get) {
+                                                $alimentoCodigo = $get('alimento_id');
+                                                if (!$alimentoCodigo) {
+                                                    return 'Seleccione un alimento';
+                                                }
+
+                                                $costoActivo = \App\Models\Costo::where('alimento_id', $alimentoCodigo)
+                                                    ->where('estado', 'activo')
+                                                    ->latest('created_at')
+                                                    ->first();
+
+                                                return $costoActivo
+                                                    ? '$' . number_format($costoActivo->precio, 2, ',', '.') . ' COP'
+                                                    : 'No hay precio activo';
+                                            }),
+
+                                        Placeholder::make('fecha_precio')
+                                            ->label('📅 Fecha del precio')
+                                            ->content(function ($get) {
+                                                $alimentoCodigo = $get('alimento_id');
+                                                if (!$alimentoCodigo) {
+                                                    return '—';
+                                                }
+
+                                                $costoActivo = \App\Models\Costo::where('alimento_id', $alimentoCodigo)
+                                                    ->where('estado', 'activo')
+                                                    ->latest('created_at')
+                                                    ->first();
+
+                                                return $costoActivo
+                                                    ? $costoActivo->created_at->format('d/m/Y H:i')
+                                                    : '—';
+                                            }),
+                                    ]),
+                            ])
+                            ->columnSpan([
+                                'default' => 1,
+                                'md' => 1,
                             ]),
                     ]),
 
-                Section::make('Nuevo Precio')
-                    ->description('Ingrese el nuevo precio y seleccione la unidad de medida.')
+
+                Section::make('💵 Nuevo Precio')
+                    ->description('Registre el valor del alimento junto con la unidad de medida correspondiente.')
                     ->schema([
-                        Grid::make(2)
+                        Grid::make([
+                            'default' => 1,
+                            'md' => 2, // en pantallas medianas o mayores: 2 columnas
+                        ])
                             ->schema([
                                 TextInput::make('precio')
                                     ->label('Nuevo precio')
                                     ->required()
-                                    ->numeric()
-                                    ->prefix('$')         // Símbolo $ antes del número
-                                    ->suffix('COP'),      // Texto COP después del número
+                                    ->integer()
+                                    ->minValue(1)
+                                    ->prefix('$')
+                                    ->suffix('COP')
+                                    ->placeholder('Ejemplo: 3500')
+                                    ->helperText('Ingrese el valor en pesos sin puntos ni comas.')
+                                    ->live(onBlur: true) // 🔹 Solo valida al quitar el foco
+                                    ->afterStateUpdated(function ($state) {
+                                        if ($state === '') {
+                                            return; // No validamos si está vacío (ya se validará por "required")
+                                        }
+
+                                        if (!ctype_digit($state)) {
+                                            \Filament\Notifications\Notification::make()
+                                                ->title('Error en el campo Precio')
+                                                ->body('El precio debe contener solo números enteros sin puntos ni comas.')
+                                                ->danger()
+                                                ->send();
+                                        } else {
+                                            \Filament\Notifications\Notification::make()
+                                                ->title('Precio válido')
+                                                ->body('El valor ingresado es correcto.')
+                                                ->success()
+                                                ->send();
+                                        }
+                                    }),
 
                                 Select::make('unidad_medida')
                                     ->label('Unidad de medida')
                                     ->options([
-                                        'kg' => 'KILOGRAMOS',
-                                        'g' => 'GRAMOS',
-                                        'l' => 'LITROS',
-                                        'ml' => 'MILILITROS',
-                                        'unidad' => 'UNIDAD',
+                                        'kg' => 'Kilogramos',
+                                        'g' => 'Gramos',
+                                        'l' => 'Litros',
+                                        'ml' => 'Mililitros',
+                                        'unidad' => 'Unidad',
                                     ])
-                                    ->required(),
+                                    ->searchable()
+                                    ->required()
+                                    ->native(false) // mejora el diseño del select
+                                    ->helperText('Seleccione la unidad en la que aplica el precio.'),
                             ]),
-                    ]),
+                    ])
+
             ]);
     }
 
@@ -131,53 +211,135 @@ class CostoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            //->heading('Tabla de Costos')
             ->columns([
-                Tables\Columns\TextColumn::make('alimento_id')
+                Tables\Columns\TextColumn::make('alimento.codigo')
                     ->label('Código')
+                    ->sortable()
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('alimento.nombre_del_alimento')
                     ->label('Alimento')
+                    ->sortable()
                     ->searchable()
+                    ->limit(30)
+                    ->tooltip(
+                        fn(TextColumn $column): ?string =>
+                        strlen($column->getState()) > $column->getCharacterLimit()
+                            ? $column->getState()
+                            : null
+                    )
                     ->formatStateUsing(fn(string $state) => strtoupper($state)),
+
                 Tables\Columns\TextColumn::make('precio')
                     ->label('Precio')
                     ->sortable()
                     ->formatStateUsing(fn($state) => '$' . number_format($state, 0, ',', '.') . ' COP'),
+
                 Tables\Columns\TextColumn::make('unidad_medida')
+                    ->label('Unidad')
                     ->searchable()
                     ->formatStateUsing(fn(string $state) => strtoupper($state)),
-                IconColumn::make('estado')
-                    ->label('Estado')
-                    ->icon(fn(string $state) => $state === 'activo' ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
-                    ->color(fn(string $state) => $state === 'activo' ? 'success' : 'danger'),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->actions([
-                Action::make('ver_costos')
-                    ->label('Ver')
-                    ->icon('heroicon-o-eye')
-                    ->modalHeading(fn($record) => 'Costos del alimento: ' . strtoupper($record->alimento->nombre_del_alimento))
-                    ->modalWidth('6xl')
-                    ->modalContent(fn($record) => view('livewire.costos-alimento-modal', [
-                        'alimento_id' => $record->alimento_id,
-                    ])),
-                Tables\Actions\EditAction::make(),
 
+                Tables\Columns\IconColumn::make('estado')
+                    ->label('Estado')
+                    ->icon(fn(string $state) => $state === 'activo'
+                        ? 'heroicon-o-check-circle'
+                        : 'heroicon-o-x-circle')
+                    ->color(fn(string $state) => $state === 'activo'
+                        ? 'success'
+                        : 'danger'),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Creado')
+                    ->date('d/m/Y')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Actualizado')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+
+            ->filters([
+                Tables\Filters\Filter::make('buscar')
+                    ->form([
+                        Forms\Components\TextInput::make('codigo')
+                            ->label('Código del alimento')
+                            ->placeholder('Ej: A001'),
+
+                        Forms\Components\TextInput::make('nombre')
+                            ->label('Nombre del alimento')
+                            ->placeholder('Ej: Arroz'),
+
+                        Forms\Components\DatePicker::make('desde')
+                            ->label('Fecha desde'),
+
+                        Forms\Components\DatePicker::make('hasta')
+                            ->label('Fecha hasta'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['codigo'],
+                                fn($q, $codigo) =>
+                                $q->whereHas(
+                                    'alimento',
+                                    fn($a) =>
+                                    $a->where('codigo', 'like', "%{$codigo}%")
+                                )
+                            )
+                            ->when(
+                                $data['nombre'],
+                                fn($q, $nombre) =>
+                                $q->whereHas(
+                                    'alimento',
+                                    fn($a) =>
+                                    $a->where('nombre_del_alimento', 'like', "%{$nombre}%")
+                                )
+                            )
+                            ->when(
+                                $data['desde'],
+                                fn($q, $desde) =>
+                                $q->whereDate('created_at', '>=', $desde)
+                            )
+                            ->when(
+                                $data['hasta'],
+                                fn($q, $hasta) =>
+                                $q->whereDate('created_at', '<=', $hasta)
+                            );
+                    }),
+            ])
+
+            ->actions([
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                    Action::make('ver_costos')
+                        ->label('Histórico')
+                        ->icon('heroicon-o-document-text')
+                        ->modalHeading(
+                            fn($record) =>
+                            'Costos del alimento: ' . strtoupper($record->alimento->nombre_del_alimento)
+                        )
+                        ->modalWidth('6xl')
+                        ->modalContent(
+                            fn($record) =>
+                            view('livewire.costos-alimento-modal', [
+                                'alimento_id' => $record->alimento_id,
+                            ])
+                        ),
+                ])->icon('heroicon-m-plus-circle'),
+            ])
+
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }
+
 
     public static function getRelations(): array
     {
